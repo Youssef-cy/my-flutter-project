@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'employees.dart';
 import 'inventory.dart';
 import 'orders.dart';
-import 'tables.dart'; // تأكد أن الملف موجود
+import 'tables.dart'; 
+import 'loginscreen.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -247,34 +248,57 @@ class _HomescreenState extends State<Homescreen> {
       EmployeesPage(),
       InventoryPage(),
       OrdersPage(),
-      TablesPage(), // تم إضافتها هنا
+      TablesPage(), 
     ];
 
-    return Scaffold(
-      appBar: _selectedIndex == 0 ? AppBar(title: Text("overview")) : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _selectedIndex = index;
-            refreshCounts();
-          });
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: "Overview"),
-          NavigationDestination(icon: Icon(Icons.person), label: "Employees"),
-          NavigationDestination(
-            icon: Icon(Icons.inventory),
-            label: "Inventory",
+    return Builder(
+      builder: (context) {
+        return Scaffold(
+          appBar: _selectedIndex == 0
+                ? AppBar(
+                  automaticallyImplyLeading: false,
+              title: Text("overview"),
+                actions: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: IconButton(
+                    icon: Icon(Icons.logout), // Changed icon
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => Loginscreen()),
+                      );
+                    },
+                  ),
+                ),
+                ],
+            )
+              : null,
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (int index) {
+              setState(() {
+                _selectedIndex = index;
+                refreshCounts();
+              });
+            },
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.home), label: "Overview"),
+              NavigationDestination(icon: Icon(Icons.person), label: "Employees"),
+              NavigationDestination(
+                icon: Icon(Icons.inventory),
+                label: "Inventory",
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.shopping_cart),
+                label: "Orders",
+              ),
+              NavigationDestination(icon: Icon(Icons.table_bar), label: "Tables"),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart),
-            label: "Orders",
-          ),
-          NavigationDestination(icon: Icon(Icons.table_bar), label: "Tables"),
-        ],
-      ),
-      body: IndexedStack(index: _selectedIndex, children: pages),
+          body: IndexedStack(index: _selectedIndex, children: pages),
+        );
+      }
     );
   }
 }
