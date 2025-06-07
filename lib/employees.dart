@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 class EmployeesPage extends StatefulWidget {
   static List<Map<String, String>> employees = [];
 
+  const EmployeesPage({super.key});
+
   @override
   State<EmployeesPage> createState() => _EmployeesPageState();
 }

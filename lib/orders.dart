@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class OrdersPage extends StatefulWidget {
-  static List<Map<String, String>> orders = []; // ستتصل لاحقًا بقاعدة البيانات
+  static List<Map<String, String>> orders = [];
+
+  const OrdersPage({super.key}); // ستتصل لاحقًا بقاعدة البيانات
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();

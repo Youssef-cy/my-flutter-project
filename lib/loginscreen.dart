@@ -1,10 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/homescreen.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'main.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class Loginscreen extends StatelessWidget {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+class Loginscreen extends StatefulWidget {
   const Loginscreen({super.key});
+
+  @override
+  State<Loginscreen> createState() => _LoginscreenState();
+}
+
+class _LoginscreenState extends State<Loginscreen> {
+  String? _user_id;
+
+  @override
+  void initState() {
+    super.initState();
+      supabase.auth.onAuthStateChange.listen((data) async {
+      final session = await data.session;
+      if (session != null) {
+        setState(() {
+          // just refresh the counts when the session is valid  
+        });
+      } else {
+        setState(() {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => Loginscreen()),
+          );
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +62,8 @@ class Loginscreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                "Welcome Back!",
+              Text(
+                _user_id ?? 'Welcome to the App',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -88,47 +117,110 @@ class Loginscreen extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                    padding: const EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
                   ),
                 ),
-                onPressed:
-                    () async {
-                    final url = Uri.parse('http://localhost:5000/signup');
-                    final response = await http.post(
-                      url,
-                      headers: {'Content-Type': 'application/json'},
-                      body: json.encode({
-                      'name': nameController.text,
-                      'market_name': marketController.text,
-                      'password': passwordController.text,
-                      }),
+                onPressed: () async {
+                  try {
+                    final response = await supabase.auth.signUp(
+                      email: marketController.text,
+                      password: passwordController.text,
                     );
-                    final data = json.decode(response.body);
 
-
-                    if (response.statusCode == 201) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => Homescreen()),
-                      );
+                    if (response.user != null) {
+                      supabase.auth.onAuthStateChange
+                          .listen((data) async {
+                        final session = await data.session;
+                        if (session != null) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Homescreen()),
+                            );
+                        } else {
+                          setState(() {
+                            showModalBottomSheet(
+                              context: context,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20)),
+                              ),
+                              builder: (context) => Container(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.email,
+                                        color: Colors.blue, size: 40),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'Please confirm your email',
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'A confirmation link has been sent to your email address. Please check your inbox and confirm your email to continue.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          });
+                        }
+                      });
                     } else {
-                        showDialog(
+                      showDialog(
                         context: context,
                         builder: (context) => AlertDialog(
                           title: const Text('Signup Failed'),
-                          content: Text('${data['error']}\nStatus: ${response.statusCode}'),
+                          content: Text(
+                              '${response.user?.email} already exists. Please try a different email.'),
                           actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
-                          ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('OK'),
+                            ),
                           ],
                         ),
-                        );
+                      );
                     }
-                    },
+                  } on Exception catch (e) {
+                    if (e is AuthWeakPasswordException) {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (context) => Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.warning, color: Colors.red, size: 40),
+                              SizedBox(height: 16),
+                              Text(
+                                'Password too short',
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Please enter a password with a valid length.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                },
                 icon: const Icon(Icons.create),
                 label: const Text("Sign Up"),
               ),
@@ -144,52 +236,68 @@ class Loginscreen extends StatelessWidget {
                     vertical: 12,
                   ),
                 ),
-                onPressed: () async{
-                  final response = await http.post(
-                    Uri.parse('http://localhost:5000/login'),
-                    headers: {'Content-Type': 'application/json'},
-                    body: json.encode({
-                      'name': nameController.text,
-                      'market_name': marketController.text,
-                      'password': passwordController.text,
-                    }),
+                onPressed: () async {
+                  try {
+                  final response =
+                    await supabase.auth.signInWithPassword(
+                    email: marketController.text,
+                    password: passwordController.text,
                   );
-                  final data = json.decode(response.body);
-                  if (response.statusCode == 200) {
-                    print('Login successful');
-                    Navigator.push(
+                  if (response.user != null) {
+                    setState(() {
+                    _user_id = response.user?.id;
+                    });
+                    Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (context) => Homescreen()),
-                  );
-                  } else if (response.statusCode == 401) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Login Failed'),
-                        content: Text('Invalid credentials. Please try again.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
                     );
                   } else {
                     showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Login Failed'),
-                        content: Text('${data['error']}\nStatus: ${response.statusCode}'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('OK'),
-                          ),
-                        ],
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Login Failed'),
+                      content: Text(response.user?.email ??
+                        'Invalid credentials. Please try again.'),
+                      actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
                       ),
+                      ],
+                    ),
                     );
-                    return;
+                  }
+                  } on AuthApiException catch (e) {
+                  if (e.code == 'invalid_credentials') {
+                    showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (context) => Container(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.error, color: Colors.red, size: 40),
+                        SizedBox(height: 16),
+                        Text(
+                        'Invalid login credentials',
+                        style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                        'The email or password you entered is incorrect. Please try again.',
+                        textAlign: TextAlign.center,
+                        ),
+                      ],
+                      ),
+                    ),
+                    );
+                  } else {
+                    rethrow;
+                  }
                   }
                 },
                 icon: const Icon(Icons.login),
@@ -200,24 +308,5 @@ class Loginscreen extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-Future<void> signup(String name, String market, String password) async {
-  final url = Uri.parse('http://localhost:5000/signup');
-  final response = await http.post(
-    url,
-    headers: {'Content-Type': 'application/json'},
-    body: json.encode({
-      'name': name,
-      'market_name': market,
-      'password': password,
-    }),
-  );
-
-  if (response.statusCode == 201) {
-    print('Signup successful');
-  } else {
-    print('Signup failed: ${response.body}, ${response.statusCode}');
   }
 }

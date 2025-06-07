@@ -15,6 +15,8 @@ class InventoryItem {
 class InventoryPage extends StatefulWidget {
   static List<InventoryItem> items = [];
 
+  const InventoryPage({super.key});
+
   @override
   State<InventoryPage> createState() => _InventoryPageState();
 }

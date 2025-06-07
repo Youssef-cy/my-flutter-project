@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/main.dart';
 import 'employees.dart';
 import 'inventory.dart';
 import 'orders.dart';
@@ -21,9 +22,37 @@ class _HomescreenState extends State<Homescreen> {
   int tablesCount = 0;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check authentication status when dependencies change
+    if (supabase.auth.currentSession == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => Loginscreen()),
+        );
+      });
+    }
+  }
   void initState() {
     super.initState();
     refreshCounts();
+      supabase.auth.onAuthStateChange.listen((data) async {
+      final session = await data.session;
+      if (session != null) {
+        setState(() {
+          // just refresh the counts when the session is valid  
+          refreshCounts();
+        });
+      } else {
+        setState(() {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => Loginscreen()),
+          );
+        });
+      }
+    });
   }
 
   void refreshCounts() {
@@ -263,7 +292,8 @@ class _HomescreenState extends State<Homescreen> {
                   padding: const EdgeInsets.all(8.0),
                   child: IconButton(
                     icon: Icon(Icons.logout), // Changed icon
-                    onPressed: () {
+                    onPressed: () async{
+                      await supabase.auth.signOut();
                       Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (context) => Loginscreen()),

@@ -9,6 +9,8 @@ class TableItem {
 class TablesPage extends StatefulWidget {
   static List<TableItem> tables = [];
 
+  const TablesPage({super.key});
+
   @override
   _TablesPageState createState() => _TablesPageState();
 }
