@@ -34,11 +34,12 @@ class _HomescreenState extends State<Homescreen> {
       });
     }
   }
+  @override
   void initState() {
     super.initState();
     refreshCounts();
       supabase.auth.onAuthStateChange.listen((data) async {
-      final session = await data.session;
+      final session = data.session;
       if (session != null) {
         setState(() {
           // just refresh the counts when the session is valid  

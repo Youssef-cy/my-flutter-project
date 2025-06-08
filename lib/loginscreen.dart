@@ -15,32 +15,19 @@ class Loginscreen extends StatefulWidget {
 class _LoginscreenState extends State<Loginscreen> {
   String? _user_id;
 
+  // Move controllers to the state class
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController marketController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
-      supabase.auth.onAuthStateChange.listen((data) async {
-      final session = await data.session;
-      if (session != null) {
-        setState(() {
-          // just refresh the counts when the session is valid  
-        });
-      } else {
-        setState(() {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => Loginscreen()),
-          );
-        });
-      }
-    });
+
   }
 
   @override
   Widget build(BuildContext context) {
-    final nameController = TextEditingController();
-    final marketController = TextEditingController();
-    final passwordController = TextEditingController();
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -128,72 +115,47 @@ class _LoginscreenState extends State<Loginscreen> {
                       email: marketController.text,
                       password: passwordController.text,
                     );
+                    debugPrint('Sign up response: $response');
+                    final user = response.user?.toJson();
+                    debugPrint('User data: $user');
+                    debugPrint(
+                        'Sign up response: ${user?['user_metadata']['email_verified']}');
 
-                    if (response.user != null) {
-                      supabase.auth.onAuthStateChange
-                          .listen((data) async {
-                        final session = await data.session;
-                        if (session != null) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Homescreen()),
-                            );
-                        } else {
-                          setState(() {
-                            showModalBottomSheet(
-                              context: context,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20)),
-                              ),
-                              builder: (context) => Container(
-                                padding: const EdgeInsets.all(24),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(Icons.email,
-                                        color: Colors.blue, size: 40),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'Please confirm your email',
-                                      style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'A confirmation link has been sent to your email address. Please check your inbox and confirm your email to continue.',
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          });
-                        }
-                      });
-                    } else {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Signup Failed'),
-                          content: Text(
-                              '${response.user?.email} already exists. Please try a different email.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text('OK'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                  } on Exception catch (e) {
-                    if (e is AuthWeakPasswordException) {
+                      // Show confirmation notice
                       showModalBottomSheet(
                         context: context,
-                        shape: RoundedRectangleBorder(
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (context) => Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.email, color: Colors.blue, size: 40),
+                              SizedBox(height: 16),
+                              Text(
+                                'Please confirm your email',
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'A confirmation link has been sent to your email address. Please check your inbox.\n and Login after confirming.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    
+                  } on Exception catch (e) {
+                    if (e is AuthWeakPasswordException) {
+                      // Password too weak
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
                           borderRadius:
                               BorderRadius.vertical(top: Radius.circular(20)),
                         ),
@@ -238,66 +200,108 @@ class _LoginscreenState extends State<Loginscreen> {
                 ),
                 onPressed: () async {
                   try {
-                  final response =
-                    await supabase.auth.signInWithPassword(
-                    email: marketController.text,
-                    password: passwordController.text,
-                  );
-                  if (response.user != null) {
-                    setState(() {
-                    _user_id = response.user?.id;
-                    });
-                    Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => Homescreen()),
+                    final response = await supabase.auth.signInWithPassword(
+                      email: marketController.text,
+                      password: passwordController.text,
                     );
-                  } else {
-                    showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Login Failed'),
-                      content: Text(response.user?.email ??
-                        'Invalid credentials. Please try again.'),
-                      actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('OK'),
-                      ),
-                      ],
-                    ),
-                    );
-                  }
+                    if (response.user != null) {
+                      debugPrint("Inserting user with:");
+                      debugPrint("username: ${nameController.text}");
+                      debugPrint("email: ${response.user?.email}");
+                      debugPrint("role: admin");
+                      final res =
+                        await supabase.functions.invoke('insert-user', body: {
+                        'username': nameController.text,
+                        'email': response.user?.email,
+                        'role': 'admin',
+                      });
+
+                      debugPrint('User inserted: ${res.data}');
+
+                      setState(() {
+                        _user_id = response.user!.id;
+                      });
+
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => Homescreen()),
+                      );
+                    } else {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Login Failed'),
+                          content: Text(response.user?.email ??
+                              'Invalid credentials. Please try again.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
                   } on AuthApiException catch (e) {
-                  if (e.code == 'invalid_credentials') {
-                    showModalBottomSheet(
-                    context: context,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    builder: (context) => Container(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.error, color: Colors.red, size: 40),
-                        SizedBox(height: 16),
-                        Text(
-                        'Invalid login credentials',
-                        style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                    if (e.code == 'invalid_credentials') {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                        'The email or password you entered is incorrect. Please try again.',
-                        textAlign: TextAlign.center,
+                        builder: (context) => Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.error, color: Colors.red, size: 40),
+                              SizedBox(height: 16),
+                              Text(
+                                'Invalid login credentials',
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'The email or password you entered is incorrect. Please try again.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                      ),
-                    ),
-                    );
-                  } else {
-                    rethrow;
-                  }
+                      );
+                    } else if (e.code == 'email_not_confirmed') {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (context) => Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.email, color: Colors.blue, size: 40),
+                              SizedBox(height: 16),
+                              Text(
+                                'Email not confirmed',
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Please confirm your email before logging in.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    } else {
+                      rethrow;
+                    }
                   }
                 },
                 icon: const Icon(Icons.login),
